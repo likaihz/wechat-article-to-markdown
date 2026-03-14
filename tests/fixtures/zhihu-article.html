@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>MacBook Pro 外接显示器开启 HiDPI</title>
+</head>
+<body>
+    <main>
+        <article class="Post-Main">
+            <h1 class="Post-Title">MacBook Pro 外接显示器开启 HiDPI</h1>
+            <div class="Post-Author">
+                <div class="AuthorInfo">
+                    <div class="AuthorInfo-name">JChenCode</div>
+                </div>
+            </div>
+            <div class="Post-RichText RichText">
+                <p>本文使用Zhihu On VSCode创作并发布</p>
+                <h2>前言</h2>
+                <p>最近向公司申请了一台 2K 显示器，弄来之后，接上 MacBook Pro，结果，由于像素太高，导致整个屏幕的字体变得特别小。</p>
+
+                <h2>正文</h2>
+                <p>在 MacBook Pro 上开启外接显示器的 HiDPI 需要以下几个步骤：</p>
+
+                <figure>
+                    <img src="https://pica.zhimg.com/v2-6d1de3637df3ee62309d7b67fd5f143e_1440w.jpg" alt="显示器设置">
+                </figure>
+
+                <p>首先，我们需要查看显示器的信息：</p>
+
+                <pre><code>$ ioreg -l | grep "DisplayVendorID"
+
+$ ioreg -l | grep "DisplayProductID"</code></pre>
+
+                <p>这两个命令会分别输出显示器的 Vendor ID 和 Product ID。</p>
+
+                <figure>
+                    <img src="https://pic4.zhimg.com/v2-bb324bce7aeb2277e983bb927e8c4c2f_1440w.jpg" alt="终端输出">
+                </figure>
+
+                <h2>关闭 SIP</h2>
+                <p>要开启 HiDPI，我们需要关闭 SIP (System Integrity Protection)。</p>
+
+                <pre><code>$ csrutil status</code></pre>
+
+                <p>这个命令会显示当前 SIP 的状态。</p>
+
+                <figure>
+                    <img src="https://pic1.zhimg.com/v2-408be33132bf7e07f668e5afe299c336_1440w.jpg" alt="SIP状态">
+                </figure>
+
+                <h2>挂载根目录为可写</h2>
+                <pre><code>$ sudo mount -rw /</code></pre>
+
+                <p>这个命令会让根目录变为可写状态。</p>
+
+                <figure>
+                    <img src="https://picx.zhimg.com/v2-41b78ad568d9e4b702dd01462d4306bf_1440w.jpg" alt="挂载结果">
+                </figure>
+
+                <h2>总结</h2>
+                <p>通过以上步骤，你就可以在 MacBook Pro 上为外接显示器开启 HiDPI，获得更清晰的显示效果。</p>
+            </div>
+        </article>
+    </main>
+</body>
+</html>
