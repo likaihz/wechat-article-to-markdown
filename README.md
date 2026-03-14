@@ -36,6 +36,9 @@ uv sync
 # Installed CLI
 wechat-article-to-markdown "https://mp.weixin.qq.com/s/xxxxxxxx"
 
+# Specify output directory
+wechat-article-to-markdown "https://mp.weixin.qq.com/s/xxxxxxxx" -o ./my-articles
+
 # Run in repo with uv
 uv run wechat-article-to-markdown "https://mp.weixin.qq.com/s/xxxxxxxx"
 

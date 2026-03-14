@@ -42,12 +42,17 @@ uv tool install wechat-article-to-markdown
 wechat-article-to-markdown "<WECHAT_ARTICLE_URL>"
 ```
 
+Options:
+- `-o, --output <dir>` - Specify output directory (default: `./output`)
+
 Input URL format:
 - `https://mp.weixin.qq.com/s/...`
 
 Output files:
-- `<cwd>/output/<article-title>/<article-title>.md`
-- `<cwd>/output/<article-title>/images/*`
+- `<output-dir>/<article-title>/<article-title>.md`
+- `<output-dir>/<article-title>/images/*`
+
+Default output directory: `./output`
 
 ## Features
 

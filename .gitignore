@@ -5,3 +5,5 @@ debug.html
 __pycache__/
 *.pyc
 .venv/
+*.egg-info/
+.claude/settings.local.json
