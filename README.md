@@ -1,16 +1,17 @@
 # wechat-article-to-markdown
 
-Fetch WeChat Official Account articles and convert them to clean Markdown.
+Fetch articles from WeChat Official Account (微信公众号) or Zhihu (知乎) and convert them to clean Markdown.
 
 [English](#features) | [中文](#功能特性)
 
 ## Features
 
+- **Multi-platform support**: WeChat Official Account (微信公众号), Zhihu Questions (知乎问答), Zhihu Zhuanlan (知乎专栏)
 - Anti-detection fetching with Camoufox
-- Extract article metadata (title, account name, publish time, source URL)
-- Convert WeChat article HTML to Markdown
+- Extract article metadata (title, author name, source URL)
+- Convert article HTML to Markdown
 - Download article images to local `images/` and rewrite links
-- Handle WeChat `code-snippet` blocks with language fences
+- Handle code blocks with language fences
 
 ## Installation
 
@@ -39,6 +40,12 @@ wechat-article-to-markdown "https://mp.weixin.qq.com/s/xxxxxxxx"
 # Specify output directory
 wechat-article-to-markdown "https://mp.weixin.qq.com/s/xxxxxxxx" -o ./my-articles
 
+# Zhihu article
+wechat-article-to-markdown "https://zhuanlan.zhihu.com/p/xxxxxxxx"
+
+# Zhihu question/answer
+wechat-article-to-markdown "https://www.zhihu.com/question/xxx/answer/xxx"
+
 # Run in repo with uv
 uv run wechat-article-to-markdown "https://mp.weixin.qq.com/s/xxxxxxxx"
 
@@ -59,13 +66,22 @@ output/
 ```
 
 
+## Supported Platforms
+
+| Platform | URL Pattern |
+|----------|-------------|
+| 微信公众号 | `https://mp.weixin.qq.com/s/...` |
+| 知乎专栏 | `https://zhuanlan.zhihu.com/p/...` |
+| 知乎问答 | `https://www.zhihu.com/question/.../answer/...` |
+
+
 ## Testing
 
 ```bash
 # Unit tests (default CI path)
 uv run --with pytest pytest -q -m "not e2e"
 
-# Live E2E against real WeChat articles
+# Live E2E against real articles
 WECHAT_E2E_URLS="https://mp.weixin.qq.com/s/Y7dyRC7CJ09miHWU6LBzBA,https://mp.weixin.qq.com/s/xxxxxxxx" \
   uv run --with pytest pytest -q -m e2e -s
 ```
@@ -117,18 +133,19 @@ Environment: `pypi`
 
 `release.yml` triggers on `v*` tags, runs unit tests + live e2e tests, then publishes to PyPI with trusted publishing (`id-token: write`).
 
-For release e2e targets, set repository variable `RELEASE_E2E_URLS` (comma-separated article URLs).  
+For release e2e targets, set repository variable `RELEASE_E2E_URLS` (comma-separated article URLs).
 If not set, workflow falls back to `https://mp.weixin.qq.com/s/Y7dyRC7CJ09miHWU6LBzBA`.
 
 ---
 
 ## 功能特性
 
+- **多平台支持**：微信公众号、知乎问答、知乎专栏
 - 使用 Camoufox 进行反检测抓取
-- 提取标题、公众号名称、发布时间、原文链接
-- 将微信公众号文章 HTML 转换为 Markdown
+- 提取标题、作者名称、原文链接
+- 将文章 HTML 转换为 Markdown
 - 下载图片到本地 `images/` 并自动替换链接
-- 处理微信 `code-snippet` 代码块并保留语言标识
+- 处理代码块并保留语言标识
 
 ## 安装
 
@@ -143,7 +160,14 @@ pipx install wechat-article-to-markdown
 ## 使用示例
 
 ```bash
+# 微信公众号
 wechat-article-to-markdown "https://mp.weixin.qq.com/s/xxxxxxxx"
+
+# 知乎专栏
+wechat-article-to-markdown "https://zhuanlan.zhihu.com/p/xxxxxxxx"
+
+# 知乎问答
+wechat-article-to-markdown "https://www.zhihu.com/question/xxx/answer/xxx"
 ```
 
 ## 作为 AI Agent Skill 使用

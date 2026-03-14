@@ -11,9 +11,14 @@ from __future__ import annotations
 # ///
 
 """
-WeChat Article to Markdown — 微信公众号文章抓取 & Markdown 转换工具
+Article to Markdown — 文章抓取 & Markdown 转换工具
 
-使用 Camoufox (反检测浏览器) + BeautifulSoup + markdownify 将微信公众号文章
+支持平台：
+- 微信公众号 (mp.weixin.qq.com)
+- 知乎问答 (zhihu.com/question/.../answer/...)
+- 知乎专栏 (zhuanlan.zhihu.com/p/...)
+
+使用 Camoufox (反检测浏览器) + BeautifulSoup + markdownify 将文章
 转换为干净的 Markdown 文件，图片自动下载到本地。
 """
 
@@ -28,49 +33,11 @@ import markdownify
 from bs4 import BeautifulSoup
 from camoufox.async_api import AsyncCamoufox
 
+from platforms import get_adapter
+
 # Default output directory (can be overridden via CLI --output)
 OUTPUT_DIR = Path.cwd() / "output"
 IMAGE_CONCURRENCY = 5
-
-
-# ============================================================
-# Helpers
-# ============================================================
-
-
-def extract_publish_time(html: str) -> str:
-    """从 HTML script 标签中提取发布时间"""
-    # JsDecode 格式
-    m = re.search(r"create_time\s*:\s*JsDecode\('([^']+)'\)", html)
-    if m:
-        val = m.group(1)
-        try:
-            ts = int(val)
-            if ts > 0:
-                return format_timestamp(ts)
-        except ValueError:
-            return val
-
-    # 纯数字格式
-    m = re.search(r"create_time\s*:\s*'(\d+)'", html)
-    if m:
-        return format_timestamp(int(m.group(1)))
-
-    # 兼容双引号与 = 赋值风格
-    m = re.search(r'create_time\s*[:=]\s*["\']?(\d+)["\']?', html)
-    if m:
-        return format_timestamp(int(m.group(1)))
-
-    return ""
-
-
-def format_timestamp(ts: int) -> str:
-    """Unix timestamp (秒) -> 'YYYY-MM-DD HH:mm:ss' (Asia/Shanghai, UTC+8)"""
-    from datetime import datetime, timezone, timedelta
-
-    tz = timezone(timedelta(hours=8))
-    dt = datetime.fromtimestamp(ts, tz=tz)
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
 # ============================================================
@@ -84,6 +51,7 @@ async def download_image(
     img_dir: Path,
     index: int,
     semaphore: asyncio.Semaphore,
+    referer: str = "",
 ) -> tuple[str, str | None]:
     """下载单张图片到本地，返回 (remote_url, local_relative_path | None)"""
     async with semaphore:
@@ -99,9 +67,10 @@ async def download_image(
             filename = f"img_{index:03d}.{ext}"
             filepath = img_dir / filename
 
+            headers = {"Referer": referer} if referer else {}
             resp = await client.get(
                 url,
-                headers={"Referer": "https://mp.weixin.qq.com/"},
+                headers=headers,
                 timeout=15.0,
             )
             resp.raise_for_status()
@@ -113,7 +82,9 @@ async def download_image(
 
 
 async def download_all_images(
-    img_urls: list[str], img_dir: Path
+    img_urls: list[str],
+    img_dir: Path,
+    referer: str = "",
 ) -> dict[str, str]:
     """并发下载所有图片，返回 {remote_url: local_path} 映射"""
     if not img_urls:
@@ -124,7 +95,7 @@ async def download_all_images(
 
     async with httpx.AsyncClient() as client:
         tasks = [
-            download_image(client, url, img_dir, i + 1, semaphore)
+            download_image(client, url, img_dir, i + 1, semaphore, referer)
             for i, url in enumerate(img_urls)
         ]
         results = await asyncio.gather(*tasks)
@@ -142,74 +113,6 @@ async def download_all_images(
 # ============================================================
 # Content Processing
 # ============================================================
-
-
-def extract_metadata(soup: BeautifulSoup, html: str) -> dict:
-    """提取文章元数据: 标题、作者、发布时间"""
-    title_el = soup.select_one("#activity-name")
-    author_el = soup.select_one("#js_name")
-    return {
-        "title": title_el.get_text(strip=True) if title_el else "",
-        "author": author_el.get_text(strip=True) if author_el else "",
-        "publish_time": extract_publish_time(html),
-    }
-
-
-def process_content(soup: BeautifulSoup) -> tuple[str, list[dict], list[str]]:
-    """
-    预处理正文 DOM：修复图片、处理代码块、移除噪声元素。
-    返回 (content_html, code_blocks, img_urls)
-    """
-    content_el = soup.select_one("#js_content")
-    if not content_el:
-        return "", [], []
-
-    # 1) 图片: data-src -> src (微信懒加载)
-    for img in content_el.find_all("img"):
-        data_src = img.get("data-src")
-        if data_src:
-            img["src"] = data_src
-
-    # 2) 代码块: 提取 code-snippet__fix 内容，替换为占位符
-    code_blocks = []
-    for el in content_el.select(".code-snippet__fix"):
-        # 移除行号
-        for line_idx in el.select(".code-snippet__line-index"):
-            line_idx.decompose()
-
-        pre = el.select_one("pre[data-lang]")
-        lang = pre.get("data-lang", "") if pre else ""
-
-        lines = []
-        for code_tag in el.find_all("code"):
-            text = code_tag.get_text()
-            # 跳过 CSS counter 泄漏的垃圾行
-            if re.match(r"^[ce]?ounter\(line", text):
-                continue
-            lines.append(text)
-
-        if not lines:
-            lines.append(el.get_text())
-
-        placeholder = f"CODEBLOCK-PLACEHOLDER-{len(code_blocks)}"
-        code_blocks.append({"lang": lang, "code": "\n".join(lines)})
-        el.replace_with(soup.new_tag("p", string=placeholder))
-
-    # 3) 移除噪声元素
-    for sel in ("script", "style", ".qr_code_pc", ".reward_area"):
-        for tag in content_el.select(sel):
-            tag.decompose()
-
-    # 4) 收集图片 URL（去重）
-    img_urls = []
-    seen = set()
-    for img in content_el.find_all("img", src=True):
-        src = img["src"]
-        if src not in seen:
-            seen.add(src)
-            img_urls.append(src)
-
-    return str(content_el), code_blocks, img_urls
 
 
 def convert_to_markdown(content_html: str, code_blocks: list[dict]) -> str:
@@ -253,7 +156,8 @@ def build_markdown(meta: dict, body_md: str) -> str:
     """拼接最终 Markdown 文件内容"""
     lines = [f"# {meta['title']}", ""]
     if meta.get("author"):
-        lines.append(f"> 公众号: {meta['author']}")
+        author_label = meta.get("author_label", "作者")
+        lines.append(f"> {author_label}: {meta['author']}")
     if meta.get("publish_time"):
         lines.append(f"> 发布时间: {meta['publish_time']}")
     if meta.get("source_url"):
@@ -272,6 +176,14 @@ def build_markdown(meta: dict, body_md: str) -> str:
 async def fetch_article(url: str) -> None:
     print(f"🔄 正在抓取: {url}")
 
+    # 获取平台适配器
+    adapter_cls = get_adapter(url)
+    if not adapter_cls:
+        print("❌ 不支持的平台，目前支持：微信公众号、知乎")
+        sys.exit(1)
+
+    print(f"📋 平台: {adapter_cls.get_platform_name()}")
+
     # 使用 Camoufox 反检测浏览器获取完整 HTML
     print("🦊 启动 Camoufox 浏览器...")
     async with AsyncCamoufox(headless=True) as browser:
@@ -279,7 +191,7 @@ async def fetch_article(url: str) -> None:
         await page.goto(url, wait_until="domcontentloaded")
         # 等待正文加载
         try:
-            await page.wait_for_selector("#js_content", timeout=10000)
+            await page.wait_for_selector(adapter_cls.get_content_selector(), timeout=10000)
         except Exception:
             pass  # 超时也继续尝试解析
         # 额外等待确保 JS 执行完毕
@@ -290,7 +202,7 @@ async def fetch_article(url: str) -> None:
     soup = BeautifulSoup(html, "html.parser")
 
     # 提取元数据
-    meta = extract_metadata(soup, html)
+    meta = adapter_cls.extract_metadata(soup, html, url)
     if not meta["title"]:
         print("❌ 未能提取到文章标题，可能触发了验证码")
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -300,11 +212,11 @@ async def fetch_article(url: str) -> None:
 
     meta["source_url"] = url
     print(f"📄 标题: {meta['title']}")
-    print(f"👤 作者: {meta['author']}")
-    print(f"📅 时间: {meta['publish_time']}")
+    if meta.get("author"):
+        print(f"👤 作者: {meta['author']}")
 
     # 处理正文
-    content_html, code_blocks, img_urls = process_content(soup)
+    content_html, code_blocks, img_urls = adapter_cls.process_content(soup, url)
     if not content_html:
         print("❌ 未能提取到正文内容")
         sys.exit(1)
@@ -318,7 +230,8 @@ async def fetch_article(url: str) -> None:
     img_dir = article_dir / "images"
     img_dir.mkdir(parents=True, exist_ok=True)
 
-    url_map = await download_all_images(img_urls, img_dir)
+    referer = adapter_cls.get_image_referer(url)
+    url_map = await download_all_images(img_urls, img_dir, referer)
     md = replace_image_urls(md, url_map)
 
     # 写入文件
@@ -332,9 +245,12 @@ async def fetch_article(url: str) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Fetch WeChat Official Account articles and convert to Markdown"
+        description="Fetch articles and convert to Markdown"
     )
-    parser.add_argument("url", help="WeChat article URL (https://mp.weixin.qq.com/s/...)")
+    parser.add_argument(
+        "url",
+        help="Article URL (微信/知乎)",
+    )
     parser.add_argument(
         "-o", "--output",
         type=Path,
@@ -344,8 +260,15 @@ def main():
     args = parser.parse_args()
 
     url = args.url
-    if not url.startswith("https://mp.weixin.qq.com/"):
-        print("❌ 请输入有效的微信文章 URL (https://mp.weixin.qq.com/...)")
+
+    # 检测平台
+    adapter_cls = get_adapter(url)
+    if not adapter_cls:
+        print("❌ 不支持的平台")
+        print("支持的平台：")
+        print("  - 微信公众号: https://mp.weixin.qq.com/s/...")
+        print("  - 知乎问答: https://www.zhihu.com/question/.../answer/...")
+        print("  - 知乎专栏: https://zhuanlan.zhihu.com/p/...")
         sys.exit(1)
 
     # Set output directory

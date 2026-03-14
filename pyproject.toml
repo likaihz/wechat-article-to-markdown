@@ -32,6 +32,10 @@ Issues = "https://github.com/jackwener/wechat-article-to-markdown/issues"
 [project.scripts]
 wechat-article-to-markdown = "wechat_article_to_markdown:main"
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["platforms*"]
+
 [tool.setuptools]
 py-modules = ["wechat_article_to_markdown", "main"]
 

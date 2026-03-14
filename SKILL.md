@@ -1,27 +1,30 @@
 ---
 name: wechat-article-to-markdown
-description: Fetch WeChat Official Account (微信公众号) articles from mp.weixin.qq.com and convert to Markdown. 微信文章转 Markdown 工具。
+description: Fetch articles from WeChat Official Account (微信公众号) or Zhihu (知乎) and convert to Markdown. 微信/知乎文章转 Markdown 工具。
 author: jackwener
-version: "1.0.0"
+version: "1.1.0"
 tags:
   - wechat
   - 微信
   - 微信文章
   - 公众号
   - mp.weixin.qq.com
+  - zhihu
+  - 知乎
+  - zhuanlan.zhihu.com
   - markdown
   - article
   - converter
   - cli
 ---
 
-# WeChat Article to Markdown
+# Article to Markdown
 
-Fetch a WeChat Official Account article and convert it to a clean Markdown file.
+Fetch an article from WeChat or Zhihu and convert it to a clean Markdown file.
 
 ## When to use
 
-Use this skill when you need to save WeChat articles as Markdown for:
+Use this skill when you need to save articles as Markdown for:
 - Personal archive
 - AI summarization input
 - Knowledge base ingestion
@@ -39,14 +42,19 @@ uv tool install wechat-article-to-markdown
 ## Usage
 
 ```bash
-wechat-article-to-markdown "<WECHAT_ARTICLE_URL>"
+wechat-article-to-markdown "<ARTICLE_URL>"
 ```
 
 Options:
 - `-o, --output <dir>` - Specify output directory (default: `./output`)
 
-Input URL format:
-- `https://mp.weixin.qq.com/s/...`
+## Supported Platforms
+
+| Platform | URL Pattern |
+|----------|-------------|
+| 微信公众号 | `https://mp.weixin.qq.com/s/...` |
+| 知乎专栏 | `https://zhuanlan.zhihu.com/p/...` |
+| 知乎问答 | `https://www.zhihu.com/question/.../answer/...` |
 
 Output files:
 - `<output-dir>/<article-title>/<article-title>.md`
@@ -56,14 +64,16 @@ Default output directory: `./output`
 
 ## Features
 
-1. Anti-detection fetch with Camoufox
-2. Metadata extraction (title, account name, publish time, source URL)
-3. Image localization to local files
-4. WeChat code-snippet extraction and fenced code block output
-5. HTML to Markdown conversion via markdownify
-6. Concurrent image downloading
+1. Multi-platform support: WeChat, Zhihu (articles & Q&A)
+2. Anti-detection fetch with Camoufox
+3. Metadata extraction (title, author name, source URL)
+4. Image localization to local files
+5. Code block extraction with language fences
+6. HTML to Markdown conversion via markdownify
+7. Concurrent image downloading
 
 ## Limitations
 
 - Some code snippets are image/SVG rendered and cannot be extracted as source code
-- Public `mp.weixin.qq.com` URL is required
+- Zhihu publish time is not extracted (difficult to parse)
+- Zhihu anti-bot detection may block requests in some cases
